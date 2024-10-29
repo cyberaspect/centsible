@@ -2,8 +2,12 @@ import { Button, Input, Tooltip, Divider } from "@nextui-org/react";
 import { useState, useEffect, useMemo } from "react";
 import { link } from "../../components/styles";
 import { HelpCircle } from "lucide-react";
-import { Link } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useTheme } from "next-themes";
+import { setTitle } from "../../App";
+import toast from "react-hot-toast";
+import { auth } from "../../components/firebase";
+import { getAuth, setPersistence, signInWithEmailAndPassword, browserLocalPersistence } from "firebase/auth"
 
 const getErrorMessage = (errorCode) => {
   const errorMessages = {
@@ -18,56 +22,48 @@ const getErrorMessage = (errorCode) => {
     'auth/wrong-password': 'The password is incorrect.',
     'auth/weak-password': 'The password is too weak.',
     'auth/missing-password': 'We\'ll need a password to log you in!',
-    // Add more error codes and messages as needed
   };
 
   return errorMessages[errorCode] || 'An unknown error occurred!';
 };
 
 export default function Login() {
+	setTitle("Login");
 	const [username, setUsername] = useState("");
 	const [password, setPassword] = useState("");
 	const [visible, isVisible] = useState(false);
 	const [errorMessage, setErrorMessage] = useState(null);
 	const { theme, resolvedTheme } = useTheme();
+	const navigate = useNavigate();
 
-  const isInvalid = useMemo(() => {
-    if (username === "") return false;
-
-    return username.match(/^[A-Z0-9._%+-]+@[A-Z0-9.-]+.[A-Z]{2,4}$/i) ? false : true;
-  }, [username]);
-
-  const continueWithID = async (e) => {
-    e.preventDefault();
-    
-    const email = value;
-    const verifyIdentity = new Promise(async (resolve, reject) => {
-      try {
-        const usercred = await signInWithEmailAndPassword(auth, email, password);
-        navigate('/account');
-        resolve();
-      } catch (error) {
-        let errorMessage = error.message;
-        if (errorMessage.startsWith("Firebase: Error (")) {
-          errorMessage = getErrorMessage((error.message).split("Firebase: Error (")[1].split(").")[0]);
-        } else if (errorMessage.startsWith("FirebaseError: Firebase: Error (")) {
-          errorMessage = errorMessage.split("FirebaseError: Firebase: Error (")[1].split(").")[0];
-        } else if (errorMessage.includes("auth/too-many-requests")) {
-          errorMessage = "Access to your account has been temporarily disabled due to too many failed login attempts. You can immediately restore it by resetting your password or just try again a little bit later. Sorry!";
-        }
-        console.error("Error signing in:", error);
-        setErrorMessage(errorMessage);
-        reject(new Error(errorMessage));
-      }
-    });
-  
-    toast.promise(verifyIdentity, {
-      loading: 'Verifying your identity... hang tight!',
-      success: 'Welcome in!',
-      error: (error) => `Failed to sign in: ${error.message}`,
-    });
-  };
-
+	const isInvalid = useMemo(() => {
+	  if (username === "") return false;
+	
+	  return username.match(/^[A-Z0-9._%+-]+@[A-Z0-9.-]+.[A-Z]{2,4}$/i) ? false : true;
+	}, [username]);
+	
+	const continueWithID = async (e) => {
+	  e.preventDefault();
+	  
+	  const email = username;
+	  const auth = getAuth();
+	
+	  try {
+		await setPersistence(auth, browserLocalPersistence);
+		const usercred = await signInWithEmailAndPassword(auth, email, password);
+		navigate('/dashboard');
+	  } catch (error) {
+		let errorMessage = error.message;
+		if (errorMessage.startsWith("Firebase: Error (")) {
+		  errorMessage = getErrorMessage((error.message).split("Firebase: Error (")[1].split(").")[0]);
+		} else if (errorMessage.startsWith("FirebaseError: Firebase: Error (")) {
+		  errorMessage = errorMessage.split("FirebaseError: Firebase: Error (")[1].split(").")[0];
+		} else if (errorMessage.includes("auth/too-many-requests")) {
+		  errorMessage = "Access to your account has been temporarily disabled due to too many failed login attempts. You can immediately restore it by resetting your password or just try again a little bit later. Sorry!";
+		}
+		toast.error(errorMessage);
+	  }
+	};
 
 	return (
 		<div className="flex items-center h-screen justify-center p-4">
@@ -75,12 +71,10 @@ export default function Login() {
 				<div className="flex w-full max-w-sm flex-col gap-4 rounded-lg">
 					<div className="flex flex-col items-center pb-6">
 						<div className="flex flex-row items-center space-x-2 mb-2">
-							<span><img src="/assets/intellectra.png" alt="Intellectra! logo" width={120} /></span>
-							<Divider orientation="vertical" />
-							<span><img src="/assets/infinite_icon.png" alt="Infinite icon" width={120} /></span>
+							<span><img src="/assets/logo.png" className="cursor-pointer" alt="Censible coin icon" width={80} /></span>
 						</div>
-						<p className="text-xl font-medium">Login with Intellectra!</p>
-						<p className="text-sm text-default-500">to continue to Infinite Network</p>
+						<p className="text-xl font-medium">Login to Censible</p>
+						<p className="text-sm text-default-500">to continue spending sensibly</p>
 					</div>
 					<form className="flex flex-col" onSubmit={continueWithID}>
 						<div className="mb-3">
@@ -93,25 +87,25 @@ export default function Login() {
 								variant="faded"
 								isInvalid={isInvalid}
 								color={isInvalid ? "danger" : "default"}
-								placeholder="m0neysaver4@centsible.com"
+								// placeholder="m0neysaver4@centsible.com"
+								placeholder="&nbsp;"
 								errorMessage="Please enter a valid email"
 								onValueChange={setUsername}
 								endContent={
-									<Tooltip content={<div className="flex items-center justify-center"><p>For testing purposes,&nbsp;<Link className={link()} to="/dev/playintellectra/cyberaspect/secure.md">use these credentials</Link></p></div>} key="hclogin" size="md" closeDelay={500} showArrow>
+									<Tooltip content={<div className="flex items-center justify-center"><p>For testing purposes,&nbsp;<Link className={link()} to="/dev/playintellectra/cyberaspect/tempcred.md">use these credentials</Link></p></div>} key="hclogin" size="md" closeDelay={500} showArrow>
 										<HelpCircle color={resolvedTheme === "dark" ? "#ababab" : "#666666"} className="ml-1 cursor-pointer" />
 									</Tooltip>
 								}
 							/>
 							<Input
-								type={isVisible ? "text" : "password"}
+								type="password"
 								label="Password"
 								name="password"
 								radius="sm"
 								variant="faded"
-								placeholder="•••••••••••••••••"
+								placeholder="&nbsp;"
 								value={password}
 								onChange={(e) => setPassword(e.target.value)}
-								isClearable
 								isRequired
 								// ref={passwordInputRef}
 								// endContent={
@@ -138,7 +132,7 @@ export default function Login() {
 					{/* Continue With Google in CWG.html */}
 					<p className="text-center text-sm">
 						Don't have an account yet?&nbsp;
-						<Link to="/dev/playintellectra/cyberaspect/secure.md" className="text-primary no-underline hover:opacity-80">
+						<Link to="/dev/playintellectra/cyberaspect/tempcred.md" className="text-primary no-underline hover:opacity-80">
 							<span className="line-through">Sign Up</span>&nbsp;<span className="text-default-foreground">Click here for your temporary judge login</span>
 						</Link>
 					</p>
