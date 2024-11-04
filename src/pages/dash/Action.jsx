@@ -1,22 +1,25 @@
 import { useState, useEffect } from 'react';
-import { CalendarDaysIcon, PlusCircleIcon } from 'lucide-react';
+import { CalendarDaysIcon, HelpCircleIcon, MinusCircleIcon, PlusCircleIcon } from 'lucide-react';
 import { Button, Dropdown, DropdownTrigger, DropdownMenu, DropdownItem, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, DropdownSection, Tooltip, Switch, Input, Checkbox, Link, Divider, DatePicker, cn } from '@nextui-org/react';
 import { getLocalTimeZone, today, parseDate } from "@internationalized/date";
 import { NumericFormat } from 'react-number-format';
 import { doc, collection, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../../components/firebase';
 import toast from 'react-hot-toast';
-import { p } from 'framer-motion/client';
+import { usePurchaseContext } from '../../components/PurchaseContext';
 
 export default function ActionButton({ userData }) {
   const [transactionDropdownVisible, setTransactionDropdownVisible] = useState(false);
   const [oneTimeModalVisible, setOneTimeModalVisible] = useState(false);
   const [subscriptionModalVisible, setSubscriptionModalVisible] = useState(false);
   const [withdrawing, setWithdrawing] = useState(true);
-  const [price, setPrice] = useState("");
-  const [subscriptionName, setSubscriptionName] = useState("");
+  const [price, setPrice] = useState(null);
+  const [purchaseName, setPurchaseName] = useState(null);
+  const [purchaseDesc, setPurchaseDesc] = useState(null);
   const [startDate, setStartDate] = useState(today(getLocalTimeZone()));
+  const [showDescBox, setShowDescBox] = useState(false);
   const [loading, setLoading] = useState(false);
+  const { incrementPurchaseNum } = usePurchaseContext();
 
   const handleOpenDropdown = () => {
     setTransactionDropdownVisible(!transactionDropdownVisible);
@@ -39,16 +42,22 @@ export default function ActionButton({ userData }) {
   const closeOneTime = () => {
     setOneTimeModalVisible(false);
     setWithdrawing(true);
+    setPurchaseName(null);
+    setPurchaseDesc(null);
+    setPrice(null);
+    
   };
 
   const closeSub = () => {
     setSubscriptionModalVisible(false);
     setWithdrawing(true);
+    setPurchaseName(null);
+    setPurchaseDesc(null);
   };
 
-  const handleSaveSubscription = async () => {
-    if (!subscriptionName || !price || !startDate) {
-      alert("Please fill in all fields.");
+  const handleSaveOneTime = async () => {
+    if (!purchaseName || !price) {
+      toast.error("Looks like you missed a couple of things 😉. Please fill out all required fields");
       return;
     }
 
@@ -56,19 +65,66 @@ export default function ActionButton({ userData }) {
 
     try {
       const user = auth.currentUser;
-      const subscriptionDocRef = doc(collection(db, 'hc5', user.uid, 'subscriptions'), subscriptionName);
+      const purchaseDocRef = doc(collection(db, 'hc5', user.uid, 'purchases'), purchaseName);
+      const purchaseDoc = await getDoc(purchaseDocRef);
+
+      if (purchaseDoc.exists()) {
+        toast.error("A purchase with this name already exists.");
+      } else {
+        const purchaseData = {
+          name: purchaseName,
+          price: parseFloat(price),
+          date: new Date().toISOString(),
+          withdrawing,
+        };
+
+        if (showDescBox) {
+          purchaseData.description = purchaseDesc;
+        }
+
+        await setDoc(purchaseDocRef, purchaseData);
+        toast.success("Purchase added successfully.");
+        incrementPurchaseNum(); // Increment the sessionPurchaseNum
+        closeOneTime();
+      }
+    } catch (error) {
+      console.error("Error adding purchase:", error);
+      toast.error("An unknown error occurred! (logged)");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSaveSubscription = async () => {
+    if (!purchaseName || !price || !startDate) {
+      toast.error("Looks like you missed a couple of things 😉. Please fill out all required fields");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const user = auth.currentUser;
+      const subscriptionDocRef = doc(collection(db, 'hc5', user.uid, 'subscriptions'), purchaseName);
       const subscriptionDoc = await getDoc(subscriptionDocRef);
 
       if (subscriptionDoc.exists()) {
         toast.error("A subscription with this name already exists.");
       } else {
-        await setDoc(subscriptionDocRef, {
-          name: subscriptionName,
+        const subscriptionData = {
+          name: purchaseName,
           price: parseFloat(price),
           startDate: startDate.toString(),
           withdrawing,
-        });
+        };
+
+        if (showDescBox) {
+          subscriptionData.description = purchaseDesc;
+        }
+
+        await setDoc(subscriptionDocRef, subscriptionData);
         toast.success("Subscription added successfully.");
+        incrementPurchaseNum(); // Increment the sessionPurchaseNum
         closeSub();
       }
     } catch (error) {
@@ -152,7 +208,7 @@ export default function ActionButton({ userData }) {
             <>
               <ModalHeader className="flex flex-col gap-1">Add One-Time Transaction</ModalHeader>
               <ModalBody className="-mt-3">
-              <Switch
+                <Switch
                   color="danger"
                   classNames={{
                     base: cn(
@@ -176,17 +232,21 @@ export default function ActionButton({ userData }) {
                 <Input
                   autoFocus
                   label="Payment Name"
-                  placeholder="Amazon, Walmart, etc..."
+                  value={purchaseName}
+                  onChange={(e) => setPurchaseName(e.target.value)}
                   size="sm"
                   isRequired
                 />
                 <Input
                   label="Description"
+                  value={purchaseDesc}
+                  onChange={(e) => setPurchaseDesc(e.target.value)}
                   size="sm"
                   isClearable
                 />
                 <NumericFormat
                   label="Price"
+                  size="sm"
                   placeholder="0.00"
                   value={price}
                   onValueChange={(values) => setPrice(values.value)}
@@ -205,12 +265,12 @@ export default function ActionButton({ userData }) {
                 />
               </ModalBody>
               <ModalFooter>
-              <Button onPress={closeSub}>
-                Close
-              </Button>
-              <Button color="primary" variant='flat' onPress={closeSub}>
-                Save changes
-              </Button>
+                <Button onPress={closeOneTime}>
+                  Close
+                </Button>
+                <Button color="primary" variant='flat' onPress={handleSaveOneTime} isLoading={loading}>
+                  Save changes
+                </Button>
               </ModalFooter>
             </>
           )}
@@ -238,26 +298,55 @@ export default function ActionButton({ userData }) {
                       "group-data-[hover=true]:border-primary",
                       //selected
                       "group-data-[selected=true]:ml-6",
-                      // pressed
-                      "group-data-[pressed=false]:bg-red-300",
-                    ),
-                  }}
-                  isSelected={withdrawing}
-                  onValueChange={setWithdrawing}
-                  isDisabled={false}
-                >
-                  {withdrawing ? 'Now Withdrawing...' : 'Now Depositing...'}
-                </Switch>
-                <Input
-                  autoFocus
-                  label="Subscription Name"
-                  placeholder="Disney+, Hello Fresh, etc..."
-                  value={subscriptionName}
-                  onChange={(e) => setSubscriptionName(e.target.value)}
-                  isRequired
-                />
+                        // pressed
+                        "group-data-[pressed=false]:bg-red-300",
+                      ),
+                      }}
+                      isSelected={withdrawing}
+                      onValueChange={setWithdrawing}
+                      isDisabled={false}
+                    >
+                      {withdrawing ? 'Now Withdrawing...' : 'Now Depositing...'}
+                    </Switch>
+                    <div className="flex items-center space-x-1">
+                      <Input
+                      autoFocus
+                      size="sm"
+                      label="Subscription Name"
+                      value={purchaseName}
+                      onChange={(e) => setPurchaseName(e.target.value)}
+                      isRequired
+                      endContent={
+                        <Tooltip content="Disney+, Hello Fresh, Water Bill">
+                          <HelpCircleIcon className="dark:text-default-700 cursor-default" />
+                        </Tooltip>
+                      }
+                      />
+                      <Button
+                      size="sm"
+                      variant="light"
+                      radius="full"
+                      isIconOnly
+                      onPress={() => setShowDescBox(!showDescBox)}
+                      >
+                      <Tooltip content={showDescBox ? "Remove Description" : "Add Description"}>
+                        {showDescBox ? <MinusCircleIcon className="dark:text-default-700" /> : <PlusCircleIcon className="dark:text-default-700" />}
+                      </Tooltip>
+                      </Button>
+                    </div>
+                    {showDescBox && (
+                      <Input
+                      label="Description"
+                    value={purchaseDesc}
+                    onChange={(e) => setPurchaseDesc(e.target.value)}  
+                    size="sm"
+                    isClearable
+                  />
+                )}
+                <span className="-mb-2"></span>
                 <NumericFormat
                   label="Price"
+                  size="sm"
                   placeholder="0.00"
                   value={price}
                   onValueChange={(values) => setPrice(values.value)}
@@ -281,9 +370,9 @@ export default function ActionButton({ userData }) {
                         id="renewal"
                         name="renewal"
                       >
-                        <option className="bg-gray-700">/wk</option>
                         <option className="bg-gray-700">/mo</option>
                         <option className="bg-gray-700">/yr</option>
+                        <option className="bg-gray-700">/wk</option>
                       </select>
                     </div>
                   }
@@ -292,6 +381,7 @@ export default function ActionButton({ userData }) {
                 />
                 <DatePicker
                   label="Start Date" 
+                  size="sm"
                   description={<p className="inline-flex items-center">Tip: use the&nbsp;<CalendarDaysIcon size={17} />&nbsp;icon to open the Calendar Menu</p>} 
                   minValue={parseDate("1900-01-01")}
                   maxValue={parseDate("2100-12-31")}
@@ -301,12 +391,12 @@ export default function ActionButton({ userData }) {
                 />
               </ModalBody>
               <ModalFooter>
-              <Button onPress={closeSub}>
-                Close
-              </Button>
-              <Button color="primary" variant='flat' onPress={handleSaveSubscription} isLoading={loading}>
-                Save changes
-              </Button>
+                <Button onPress={closeSub}>
+                  Close
+                </Button>
+                <Button color="primary" variant='flat' onPress={handleSaveSubscription} isLoading={loading}>
+                  Save changes
+                </Button>
               </ModalFooter>
             </>
           )}

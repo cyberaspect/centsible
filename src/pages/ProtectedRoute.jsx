@@ -14,7 +14,7 @@ const randomLoadingMessages = [
   "We're working -",
   "We're on it -",
   "Beep boop. Boop beep?"
-]
+];
 
 function randint(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -39,7 +39,7 @@ const ProtectedRoute = ({ children }) => {
 
   if (loading) {
     const randomMessage = randomLoadingMessages[randint(0, randomLoadingMessages.length - 1)];
-
+    
     return (
       <div className="flex flex-col h-screen items-center justify-center">
         <CircularProgress className="mb-2" aria-label="Loading..." />

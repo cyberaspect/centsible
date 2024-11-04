@@ -1,13 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { auth, db } from '../components/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, getDocs } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { Avatar, Button, CircularProgress, Dropdown, DropdownItem, DropdownMenu, DropdownSection, DropdownTrigger, Link, Navbar, NavbarBrand, NavbarContent, NavbarItem, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from '@nextui-org/react';
-import { Route, Routes, useNavigate } from 'react-router-dom';
+import { Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { setTitle } from '../App';
-import { Coins, CoinsIcon } from 'lucide-react';
+import { DollarSign, CoinsIcon } from 'lucide-react';
 import TotalBalance from './dash/TotalBalance';
 import ActionButton from './dash/Action';
+import { NumericFormat } from 'react-number-format';
+import Rechart from './dash/Rechart';
+import Retable from './dash/Retable';
+import HistoryTable from './dash/Table';
 
 const randomLoadingMessages = [
   "Smarter spending coming your way.",
@@ -19,7 +23,7 @@ const randomLoadingMessages = [
   "We're working -",
   "We're on it -",
   "Beep boop. Boop beep?"
-]
+];
 
 function randint(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -31,6 +35,7 @@ export default function Dash() {
 
   const [oneTimePopoverVisible, setOneTimePopoverVisible] = useState(true);
   const [subscriptionPopoverVisible, setSubscriptionPopoverVisible] = useState(true);
+  const [purchases, setPurchases] = useState([]);
 
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
   const navigate = useNavigate();
@@ -54,7 +59,6 @@ export default function Dash() {
   };
 
   useEffect(() => {
-    setTitle("Centsible Dashboard", false);
     const fetchUserData = async () => {
       try {
         const user = auth.currentUser;
@@ -71,6 +75,22 @@ export default function Dash() {
         console.error('Error fetching user data:', error);
       } finally {
         setLoading(false);
+      }
+    };
+
+    const fetchPurchases = async () => {
+      try {
+        const user = auth.currentUser;
+        if (user) {
+          const querySnapshot = await getDocs(collection(db, "hc5", user.uid, "purchases"));
+          const purchasesData = [];
+          querySnapshot.forEach((doc) => {
+            purchasesData.push({ id: doc.id, ...doc.data() });
+          });
+          setPurchases(purchasesData);
+        }
+      } catch (error) {
+        console.error('Error fetching purchases:', error);
       }
     };
 
@@ -100,11 +120,10 @@ export default function Dash() {
     } catch (error) {
       console.error("Error on logout:", error);
     }
-  };
+ };
 
   if (loading) {
     const randomMessage = randomLoadingMessages[randint(0, randomLoadingMessages.length - 1)];
-    
     return (
       <div className="flex flex-col h-screen items-center justify-center">
         <CircularProgress className="mb-2" aria-label="Loading..." />
@@ -118,47 +137,73 @@ export default function Dash() {
       <ReNavbar userData={userData} handleHelp={handleHelpClick} />
       <HelpFormModal isOpen={isHelpModalOpen} onClose={handleCloseHelpModal} />
       <Routes>
-        <Route path="/" element={<Home userData={userData} />} />
-        <Route path="/edit" element={<Edit userData={userData} />} />
+        <Route path="/" element={<Home userData={userData} purchases={purchases} />} />
+        <Route path="/history" element={<History userData={userData} />} />
+        <Route path="/settings" element={<Edit userData={userData} />} />
       </Routes>
       <ActionButton userData={userData} />
     </>
   );
-};
+}
 
-export function Home({ userData }) {
+export function Home({ userData, purchases }) {
   useEffect(() => {
-    setTitle("F - Dashboard");
+    setTitle("Centsible Dashboard", false);
   }, []);
 
+  // grid md:grid-cols-12 mdb:grid-cols-2 xl:grid-cols-3 gap-4 p-6
+  // className="col-span-4 row-span-10 bg-default-100 rounded-2xl p-6 flex items-center justify-center"
+  //className="col-span-1 row-span-1 bg-default-100 rounded-2xl p-6 flex items-center justify-between"
   return (
-    <div>
-      <div className="p-10 mt-5 grid grid-cols-1 gap-8">
-        <div
-          className={`grid md:grid-cols-2 mdb:grid-cols-2 xl:grid-cols-3 gap-8`}
-        >
-          <TotalBalance />
-          <p>AreaChartBox</p>
-          <p>YourCards</p>
-          <div className="hidden md:inline-block xl:hidden h-[100%]">
-            <p>curmarket</p>
+    <div className="grid grid-cols-1 sm:grid-cols-4 grid-rows-3 gap-4 p-6 grid-flow-row-dense h-full">
+      <div className="col-span-1 space-y-2">
+        <div className="bg-default-100 rounded-2xl p-3 flex items-center justify-center">
+          <p className="text-default-500">Happy {["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][new Date().getDay()]}, {userData?.name ? userData.name.split(" ")[0] : "Guest"}!</p>
+        </div>
+        <div className="bg-default-100 rounded-2xl p-5 flex items-center justify-between">
+          <div>
+            <p className="text-default-500">Total Balance</p>
+            <h2 className="text-2xl font-semibold text-default-900">
+              {userData?.balance ? (
+                <NumericFormat value={userData?.balance} displayType={'text'} thousandSeparator={true} prefix={'$'} />
+              ) : "Loading..."}
+            </h2>
+          </div>
+          <div className="flex items-center justify-center bg-default-200 rounded-full h-12 w-12">
+            <DollarSign />
           </div>
         </div>
-        <div className="grid grid-cols-12 grid-rows-12 child:gap-8 space-y-8 xl:space-x-8">
-          <div className={`col-span-12 2xl:col-span-9 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 row-span-12`}>
-              <p>income info map</p>
-            <div className="md:hidden xl:inline-block">
-              <p>cur</p>
-            </div>
-            <div className="md:col-span-2 xl:col-span-3">
-              <p>curtable</p>
-            </div>
+        
+        <div className="bg-default-100 rounded-2xl p-4 flex items-center justify-between">
+          <div>
+            <p className="text-default-500">Total Balance</p>
+            <h2 className="text-2xl font-semibold text-default-900">
+              {userData?.balance ? (
+                <NumericFormat value={userData?.balance} displayType={'text'} thousandSeparator={true} prefix={'$'} />
+              ) : "Loading..."}
+            </h2>
           </div>
-          {/* //TODO should fix margin start */}
-          <div className="col-span-12 grid md:grid-cols-2 2xl:grid-cols-1 2xl:col-span-3 row-span-12 space-y-8 !ms-0 2xl:!ms-8 2xl:!mt-0">
-<p>Quick Transfer</p>
-<p>Bebop</p>
+          <div className="flex items-center justify-center bg-default-200 rounded-full h-12 w-12">
+            <DollarSign />
           </div>
+        </div>
+      </div>
+
+      <div className="col-span-4 sm:col-span-3 row-span-1">
+        <Retable />
+      </div>
+      
+      <div className="col-span-4 sm:col-span-2 row-span-1">
+        <Rechart userData={userData} purchases={purchases} />
+      </div>
+
+      <div className="col-span-4 sm:col-span-2 row-span-1">
+        <Rechart userData={userData} purchases={purchases} />
+      </div>
+
+      <div className="col-span-4">
+        <div className="bg-default-100 rounded-2xl p-3 flex items-center justify-center">
+          <p className="text-default-500">Hiya, Ethen!</p>
         </div>
       </div>
     </div>
@@ -172,27 +217,40 @@ export function Edit({ userData }) {
 
   return (
     <div>
-      <h1>Edit</h1>
+      <h1>Budget Settings</h1>
+    </div>
+  );
+}
+
+export function History({ userData }) {
+  useEffect(() => {
+    setTitle("History - Dashboard");
+  }, []);
+
+  return (
+    <div className="p-4">
+      <h1>Transaction History</h1>
+      <HistoryTable />
     </div>
   );
 }
 
 export function ReNavbar({ userData, handleHelp }) {
   const navigate = useNavigate();
-  const [curLoc, setCurLoc] = useState(window.location.pathname);
+  const location = useLocation();
+  const [curLoc, setCurLoc] = useState(location.pathname);
 
   useEffect(() => {
-    setCurLoc(window.location.pathname);
-  }, [curLoc]);
+    setCurLoc(location.pathname);
+  }, [location]);
 
   const isLoc = (path) => {
     let curPath = curLoc;
     if (curPath.startsWith('/dashboard')) {
       curPath = curPath.replace('/dashboard', '') || '/';
     }
-
     return path === curPath;
-  }
+  };
 
   return (
     <>
@@ -201,26 +259,27 @@ export function ReNavbar({ userData, handleHelp }) {
           <CoinsIcon />
           <p className="text-inherit">BE <span className="font-bold">CENTSIBLE</span></p>
         </NavbarBrand>
+
         <NavbarContent className="hidden sm:flex gap-4" justify="center">
           <NavbarItem isActive={isLoc('/')}>
             <Link href="/dashboard" color={isLoc('/') ? "warning" : "foreground"} aria-current={isLoc('/') ? "page" : null}>
               Overview
             </Link>
           </NavbarItem>
-          <NavbarItem isActive={isLoc('/custom')}>
-            <Link href="/dashboard" color={isLoc('/custom') ? "warning" : "foreground"} aria-current={isLoc('/custom') ? "page" : null}>
+          <NavbarItem isActive={isLoc('/history')}>
+            <Link href="/dashboard/history" color={isLoc('/history') ? "warning" : "foreground"} aria-current={isLoc('/history') ? "page" : null}>
               History
             </Link>
           </NavbarItem>
-          <NavbarItem isActive={isLoc('/custom')}>
-            <Link href="/dashboard" color={isLoc('/custom') ? "warning" : "foreground"} aria-current={isLoc('/custom') ? "page" : null}>
-              Account
+          <NavbarItem isActive={isLoc('/settings')}>
+            <Link href="/dashboard/settings" color={isLoc('/settings') ? "warning" : "foreground"} aria-current={isLoc('/settings') ? "page" : null}>
+              Settings
             </Link>
           </NavbarItem>
         </NavbarContent>
 
         <NavbarContent as="div" justify="end">
-          <Dropdown placement="bottom-end" aria-label='Account Options'>
+          <Dropdown placement="bottom-end">
             <DropdownTrigger>
               <Avatar
                 as="button"
@@ -232,16 +291,16 @@ export function ReNavbar({ userData, handleHelp }) {
               />
             </DropdownTrigger>
             <DropdownMenu aria-label="Profile Actions" variant="flat">
-              <DropdownItem key="profile" aria-label="profile" className="gap-2"> {/* h14 */}
+              <DropdownItem onPress={() => navigate('/dashboard')} key="profile" className="gap-2">
                 <p className="font-semibold">{userData?.name}</p>
                 <p className="text-default-500">{auth.currentUser?.email}</p>
               </DropdownItem>
               <DropdownItem onPress={() => navigate('/account')} key="account">My Account</DropdownItem>
-              <DropdownItem key="history" aria-label="history">Transaction History</DropdownItem>
-              <DropdownItem key="configurations" aria-label="config">Configurations</DropdownItem>
-              <DropdownItem key="help_and_feedback" aria-label="help_and_feedback" onPress={handleHelp}>Help & Feedback</DropdownItem>
-              <DropdownItem key="logout" aria-label="logout" color="danger" onPress={() => navigate('/account')}>
-                Log Out {userData?.name ? `${userData.name.split(' ')[0]}...` : ''}
+              <DropdownItem onPress={() => navigate('/dashboard/history')} key="team_settings">Transaction History</DropdownItem>
+              <DropdownItem onPress={() => navigate('/dashboard/settings')} key="settings">Edit Budget</DropdownItem>
+              <DropdownItem key="help_and_feedback" onPress={handleHelp}>Help & Feedback</DropdownItem>
+              <DropdownItem key="logout" color="danger" onPress={() => navigate('/account')}>
+                Log Out
               </DropdownItem>
             </DropdownMenu>
           </Dropdown>
@@ -252,6 +311,25 @@ export function ReNavbar({ userData, handleHelp }) {
 }
 
 export function HelpFormModal({ isOpen, onClose }) {
+  const [btnVisible, setBtnVisible] = useState(true);
+  const [btnOff, setBtnOff] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setBtnVisible(false);
+    setTimeout(() => {
+      setBtnVisible(true);
+    }, 1200);
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (btnVisible) return;
+    setBtnOff(true);
+    setTimeout(() => {
+      setBtnOff(false);
+    }, 5000);
+  }, [btnVisible]);
+
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="3xl" className="absolute">
       <ModalContent>
@@ -267,7 +345,7 @@ export function HelpFormModal({ isOpen, onClose }) {
           </iframe>
         </ModalBody>
         <ModalFooter className="-mt-16">
-          <Button radius="none" color="warning" onPress={onClose}>
+          <Button radius="none" className={!btnVisible ? "invisible" : null} color="warning" onPress={onClose} isDisabled={btnOff}>
             I'm done!
           </Button>
         </ModalFooter>

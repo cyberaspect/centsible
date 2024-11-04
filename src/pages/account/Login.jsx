@@ -28,7 +28,9 @@ const getErrorMessage = (errorCode) => {
 };
 
 export default function Login() {
-	setTitle("Login");
+	useEffect(() =>
+		setTitle("Login"), []
+	);
 	const [username, setUsername] = useState("");
 	const [password, setPassword] = useState("");
 	const [visible, isVisible] = useState(false);

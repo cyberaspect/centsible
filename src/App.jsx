@@ -8,6 +8,8 @@ import { auth } from "./components/firebase";
 import Account from "./pages/account/Account";
 import Dash from "./pages/Dash";
 import ProtectedRoute from "./pages/ProtectedRoute";
+import NotFound from "./pages/NotFound";
+import { PurchaseProvider } from "./components/PurchaseContext";
 
 export default function App() {
   const navigate = useNavigate();
@@ -20,15 +22,17 @@ export default function App() {
 
   return (
     <NextUIProvider navigate={navigate}>
-      <Routes>
-        <Route path="/dashboard/*" element={<ProtectedRoute><Dash /></ProtectedRoute>} />
-        <Route path="/account/*" element={<Account />} />
-        <Route path="/dev/playintellectra/cyberaspect/tempcred.md" element={<p>Username: create@hackgwinnett<br></br>Password: hc5judge<br></br><Link className={link()} to="/account/login">Go to login</Link></p>} />
-        <Route path="*" element={<Navigate to="/account/login" />} />
-      </Routes>
-      <Toaster />
+      <PurchaseProvider>
+        <Routes>
+          <Route path="/dashboard/*" element={<ProtectedRoute><Dash /></ProtectedRoute>} />
+          <Route path="/account/*" element={<Account />} />
+          <Route path="/dev/playintellectra/cyberaspect/tempcred.md" element={<p>Username: create@hackgwinnett<br></br>Password: hc5judge<br></br><Link className={link()} to="/account/login">Go to login</Link></p>} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+        <Toaster />
+      </PurchaseProvider>
     </NextUIProvider>
-  )
+  );
 }
 
 export function setTitle(title = "", suffix = true) {
