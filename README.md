@@ -4,6 +4,7 @@ Centsible lets you create YOUR budget, the way YOU want (yes, the name still is 
 
 A demo with example login credentials is at [centsible-spending-hc.web.app](https://centsible-spending-hc.web.app/). (github might lead you to a 404 page) You can also run it locally through the source code, right here. https://github.com/cyberaspect/centsible
 
+if you have any questions, you can always email my submission email!
 
 ## running locally
 Run `git clone https://github.com/cyberaspect/centsible`
