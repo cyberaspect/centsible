@@ -91,11 +91,11 @@ export default function Login() {
 								placeholder="&nbsp;"
 								errorMessage="Please enter a valid email"
 								onValueChange={setUsername}
-								// endContent={
-								// 	<Tooltip content={<div className="flex items-center justify-center"><p>For testing purposes,&nbsp;<a href="/dev/cyberaspect/tempcred">use these credentials</a></p></div>} key="hclogin" size="md" closeDelay={500} showArrow>
-								// 		<HelpCircle color={resolvedTheme === "dark" ? "#ababab" : "#666666"} className="ml-1 cursor-pointer" />
-								// 	</Tooltip>
-								// }
+								endContent={
+									<Tooltip content={<div className="flex items-center justify-center"><p>For testing purposes,&nbsp;<a href="/dev/cyberaspect/tempcred">use these credentials</a></p></div>} key="hclogin" size="md" closeDelay={500} showArrow>
+										<HelpCircle color={resolvedTheme === "dark" ? "#ababab" : "#666666"} className="ml-1 cursor-pointer" />
+									</Tooltip>
+								}
 							/>
 							<Input
 								type="password"
@@ -132,9 +132,9 @@ export default function Login() {
 					{/* Continue With Google in CWG.html */}
 					<p className="text-center text-sm">
 						Don't have an account yet?&nbsp;
-							{/* <a className="text-primary no-underline hover:opacity-80" href="/dev/cyberaspect/tempcred">
+							<a className="text-primary no-underline hover:opacity-80" href="/dev/cyberaspect/tempcred">
 								<span className="line-through">Sign Up</span>&nbsp;<span className="text-default-foreground">Click here for your temporary judge login</span>
-							</a> */}
+							</a>
 					</p>
 				</div>
 			</div>

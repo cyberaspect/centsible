@@ -24,7 +24,7 @@ export default function App() {
     <NextUIProvider navigate={navigate}>
       <PurchaseProvider>
         <Routes>
-          {/* <Route path="/" element={<Navigate to="/dashboard" />} /> */}
+          <Route path="/" element={<Navigate to="/dashboard" />} />
           <Route path="/dashboard/*" element={<ProtectedRoute><Dash /></ProtectedRoute>} />
           <Route path="/account/*" element={<Account />} />
           <Route path="/dev/cyberaspect/tempcred" element={<p>Username: create@hackgwinnett.org<br></br>Password: hc5judge<br></br><Link className={link()} to="/account/login">Go to login</Link></p>} />
