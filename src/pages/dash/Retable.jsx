@@ -1,10 +1,11 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { Table, TableHeader, TableColumn, TableBody, TableRow, TableCell, Chip, Tooltip, Button, Link } from "@nextui-org/react";
+import { Table, TableHeader, TableColumn, TableBody, TableRow, TableCell, Chip, Tooltip, Button, Link, Kbd } from "@nextui-org/react";
 import { auth, db } from "../../components/firebase";
 import { collection, getDocs } from "firebase/firestore";
 import { PencilIcon, Trash2Icon, RefreshCcw, PlusCircleIcon } from "lucide-react";
 import { usePurchaseContext } from "../../components/PurchaseContext";
 import { format } from "date-fns";
+import { useTheme } from 'next-themes';
 
 const columns = [
   { name: "NAME", uid: "name" },
@@ -15,18 +16,24 @@ const columns = [
 ];
 
 const fetchPurchases = async (uid) => {
+  setRefreshDisabled(true);
   const purchases = [];
   const querySnapshot = await getDocs(collection(db, "hc5", uid, "purchases"));
   querySnapshot.forEach((doc) => {
     purchases.push({ id: doc.id, ...doc.data() });
   });
-  return purchases;
+  // Sort by date and limit to 5 most recent purchases
+  purchases.sort((a, b) => new Date(b.date) - new Date(a.date));
+  setRefreshDisabled(false);
+  return purchases.slice(0, 5);
 };
 
 const Retable = () => {
   const [purchases, setPurchases] = useState([]);
+  const [refreshDisabled, setRefreshDisabled] = useState(false);
   const uid = auth.currentUser?.uid;
   const { sessionPurchaseNum } = usePurchaseContext();
+  const { resolvedTheme } = useTheme();
 
   useEffect(() => {
     const getPurchases = async () => {
@@ -80,7 +87,7 @@ const Retable = () => {
   }, []);
 
   return (
-    <Table aria-label="Purchases Table" bottomContent={<Link href="/dashboard/history" className="flex items-center justify-center text-white underline underline-offset-2 -mt-5">View more...</Link>}>
+    <Table aria-label="Purchases Table" bottomContent={<Link href="/dashboard/history" className={`flex items-center justify-center underline underline-offset-2 -mt-5 ${resolvedTheme === "dark" ? "text-white cursor-pointer" : "text-black cursor-pointer"}`}>View more...</Link>}>
       <TableHeader columns={columns}>
         {(column) => (
           <TableColumn key={column.uid} align={column.uid === "actions" ? "center" : "start"}>
@@ -89,7 +96,7 @@ const Retable = () => {
           {column.uid !== "actions" ? column.name : null}
           {column.uid === "actions" && (
               <Tooltip content="Refresh purchases">
-                  <Button size="sm" className="-ml-1" variant="light" isIconOnly onPress={() => fetchPurchases(uid)}><RefreshCcw size={18} /></Button>
+                  <Button size="sm" className="-ml-1" isDisabled={refreshDisabled} variant="light" isIconOnly onPress={() => fetchPurchases(uid, setRefreshDisabled)}><RefreshCcw size={18} /></Button>
               </Tooltip>
           )
           }          
@@ -97,7 +104,7 @@ const Retable = () => {
           </TableColumn>
         )}
       </TableHeader>
-      <TableBody emptyContent={<div className="space-y-0.5"><p>It's pretty empty in here...</p><p className="text-sm inline-flex items-center justify-center">Use the Action Button&nbsp;<PlusCircleIcon size={20} />&nbsp;to add a withdrawal/deposit!</p></div>} items={purchases}>
+      <TableBody emptyContent={<div className="space-y-0.5"><p>It's pretty empty in here...</p><p className="text-sm inline-flex items-center justify-center">Use the Action Button&nbsp;<PlusCircleIcon size={20} />&nbsp;to add a withdrawal/deposit! (or&nbsp;<Kbd>⌘E</Kbd></p>)</div>} items={purchases}>
         {(item) => (
           <TableRow key={item.id}>
             {(columnKey) => <TableCell>{renderCell(item, columnKey)}</TableCell>}

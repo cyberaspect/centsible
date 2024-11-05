@@ -1,12 +1,29 @@
 import { useState, useEffect } from 'react';
 import { CalendarDaysIcon, HelpCircleIcon, MinusCircleIcon, PlusCircleIcon } from 'lucide-react';
-import { Button, Dropdown, DropdownTrigger, DropdownMenu, DropdownItem, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, DropdownSection, Tooltip, Switch, Input, Checkbox, Link, Divider, DatePicker, cn } from '@nextui-org/react';
+import { Button, Dropdown, DropdownTrigger, DropdownMenu, DropdownItem, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, DropdownSection, Tooltip, Switch, Input, Checkbox, Link, Divider, DatePicker, cn, Popover, PopoverTrigger, PopoverContent, Autocomplete, AutocompleteItem, Chip, Kbd } from '@nextui-org/react';
 import { getLocalTimeZone, today, parseDate } from "@internationalized/date";
 import { NumericFormat } from 'react-number-format';
-import { doc, collection, getDoc, setDoc } from 'firebase/firestore';
+import { doc, collection, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../../components/firebase';
 import toast from 'react-hot-toast';
 import { usePurchaseContext } from '../../components/PurchaseContext';
+
+const categories = [
+  { label: "Housing", value: "housing" },
+  { label: "Transportation", value: "transportation" },
+  { label: "Food", value: "food" },
+  { label: "Utilities", value: "utilities" },
+  { label: "Clothing", value: "clothing" },
+  { label: "Medical", value: "medical" },
+  { label: "Insurance", value: "insurance" },
+  { label: "Household Items", value: "household_items" },
+  { label: "Personal", value: "personal" },
+  { label: "Entertainment", value: "entertainment" },
+  { label: "Debt", value: "debt" },
+  { label: "Education", value: "education" },
+  { label: "Savings", value: "savings" },
+  { label: "Gifts", value: "gifts" },
+];
 
 export default function ActionButton({ userData }) {
   const [transactionDropdownVisible, setTransactionDropdownVisible] = useState(false);
@@ -20,6 +37,13 @@ export default function ActionButton({ userData }) {
   const [showDescBox, setShowDescBox] = useState(false);
   const [loading, setLoading] = useState(false);
   const { incrementPurchaseNum } = usePurchaseContext();
+  const [selectedTag, setSelectedTag] = useState(null);
+  const [popoverVisible, setPopoverVisible] = useState(false);
+  const [tagInputValue, setTagInputValue] = useState('');
+
+  const toCapital = (str) => {
+    return str.charAt(0).toUpperCase() + str.slice(1);
+  };
 
   const handleOpenDropdown = () => {
     setTransactionDropdownVisible(!transactionDropdownVisible);
@@ -45,7 +69,7 @@ export default function ActionButton({ userData }) {
     setPurchaseName(null);
     setPurchaseDesc(null);
     setPrice(null);
-    
+    setSelectedTag(null);
   };
 
   const closeSub = () => {
@@ -53,6 +77,18 @@ export default function ActionButton({ userData }) {
     setWithdrawing(true);
     setPurchaseName(null);
     setPurchaseDesc(null);
+    setSelectedTag(null);
+  };
+
+  const updateBalance = async (amount, isWithdrawal) => {
+    const user = auth.currentUser;
+    const userDocRef = doc(db, 'hc5', user.uid);
+    const userDoc = await getDoc(userDocRef);
+    if (userDoc.exists()) {
+      const currentBalance = userDoc.data().balance || 0;
+      const newBalance = isWithdrawal ? currentBalance - amount : currentBalance + amount;
+      await updateDoc(userDocRef, { balance: newBalance });
+    }
   };
 
   const handleSaveOneTime = async () => {
@@ -60,31 +96,29 @@ export default function ActionButton({ userData }) {
       toast.error("Looks like you missed a couple of things 😉. Please fill out all required fields");
       return;
     }
-
     setLoading(true);
-
     try {
       const user = auth.currentUser;
       const purchaseDocRef = doc(collection(db, 'hc5', user.uid, 'purchases'), purchaseName);
       const purchaseDoc = await getDoc(purchaseDocRef);
-
       if (purchaseDoc.exists()) {
         toast.error("A purchase with this name already exists.");
       } else {
         const purchaseData = {
           name: purchaseName,
+          description: purchaseDesc,
           price: parseFloat(price),
           date: new Date().toISOString(),
+          tag: selectedTag,
           withdrawing,
         };
-
         if (showDescBox) {
           purchaseData.description = purchaseDesc;
         }
-
         await setDoc(purchaseDocRef, purchaseData);
+        await updateBalance(parseFloat(price), withdrawing);
         toast.success("Purchase added successfully.");
-        incrementPurchaseNum(); // Increment the sessionPurchaseNum
+        incrementPurchaseNum();
         closeOneTime();
       }
     } catch (error) {
@@ -100,31 +134,29 @@ export default function ActionButton({ userData }) {
       toast.error("Looks like you missed a couple of things 😉. Please fill out all required fields");
       return;
     }
-
     setLoading(true);
-
     try {
       const user = auth.currentUser;
       const subscriptionDocRef = doc(collection(db, 'hc5', user.uid, 'subscriptions'), purchaseName);
       const subscriptionDoc = await getDoc(subscriptionDocRef);
-
       if (subscriptionDoc.exists()) {
         toast.error("A subscription with this name already exists.");
       } else {
         const subscriptionData = {
           name: purchaseName,
+          description: purchaseDesc,
           price: parseFloat(price),
           startDate: startDate.toString(),
+          tag: selectedTag,
           withdrawing,
         };
-
         if (showDescBox) {
           subscriptionData.description = purchaseDesc;
         }
-
         await setDoc(subscriptionDocRef, subscriptionData);
+        await updateBalance(parseFloat(price), withdrawing);
         toast.success("Subscription added successfully.");
-        incrementPurchaseNum(); // Increment the sessionPurchaseNum
+        incrementPurchaseNum();
         closeSub();
       }
     } catch (error) {
@@ -133,6 +165,34 @@ export default function ActionButton({ userData }) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleTagSelect = (key) => {
+    setSelectedTag(key);
+    setPopoverVisible(false);
+  };
+
+  const handleTagInputChange = (value) => {
+    setTagInputValue(value);
+  };
+
+  const handleTagInputKeyDown = (event) => {
+    if (event.key === 'Enter' && tagInputValue) {
+      setTimeout(() => {
+        setSelectedTag(tagInputValue);
+        setPopoverVisible(false);
+      });
+    }
+  };
+
+  const togglePopover = () => {
+    setPopoverVisible(!popoverVisible);
+  };
+
+  const getButtonLabel = () => {
+    if (!selectedTag) return "Select Tag";
+    const category = categories.find(cat => cat.value === selectedTag);
+    return category ? toCapital(selectedTag) : selectedTag;
   };
 
   useEffect(() => {
@@ -153,7 +213,7 @@ export default function ActionButton({ userData }) {
             break;
           case 'i':
             event.preventDefault();
-            alert("Income Source...");
+            toast("If you want to add some kind of income source, you can add it as a one-time or subscription transaction. Just select the Deposit/Withdrawal switch and fill out the form as you would any other time!", {duration: 8000, icon: '👋',});
           default:
             break;
         }
@@ -263,6 +323,57 @@ export default function ActionButton({ userData }) {
                   className="no-spinner"
                   isRequired
                 />
+                                <Popover 
+                  showArrow
+                  backdrop="blur"
+                  placement="right"
+                  isOpen={popoverVisible}
+                  onClose={() => setPopoverVisible(false)}
+                  classNames={{
+                    base: ["before:bg-default-200"],
+                    content: [
+                      "py-2 px-3 border border-default-200",
+                      "bg-gradient-to-br from-white to-default-300",
+                      "dark:from-default-100 dark:to-default-50",
+                    ],
+                  }}
+                >
+                  <PopoverTrigger>
+                    <Button variant="light" onClick={togglePopover}>
+                      <Chip>{getButtonLabel()}</Chip>
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent>
+                    {(titleProps) => (
+                      <div className="px-1 py-2">
+                        {/* <h3 className="text-small font-bold" {...titleProps}>
+                          Select a Tag
+                        </h3> */}
+                        <Autocomplete 
+                          label="Select tag..."
+                          size="sm"
+                          variant="faded"
+                          description="Tags help organize your purchases."
+                          className="max-w-xs" 
+                          listboxProps={{
+                            // emptyContent: {"ENTER to add custom tag..."}
+                          }}
+                          allowsCustomValue={false}
+                          onSelectionChange={handleTagSelect}
+                          onInputChange={handleTagInputChange}
+                          onKeyDown={handleTagInputKeyDown}
+                          defaultItems={categories}
+                        >
+                          {(item) => (
+                            <AutocompleteItem key={item.value} value={item.value}>
+                              {item.label}
+                            </AutocompleteItem>
+                          )}
+                        </Autocomplete>
+                      </div>
+                    )}
+                  </PopoverContent>
+                </Popover>
               </ModalBody>
               <ModalFooter>
                 <Button onPress={closeOneTime}>
@@ -343,7 +454,6 @@ export default function ActionButton({ userData }) {
                     isClearable
                   />
                 )}
-                <span className="-mb-2"></span>
                 <NumericFormat
                   label="Price"
                   size="sm"
@@ -389,6 +499,55 @@ export default function ActionButton({ userData }) {
                   onChange={setStartDate}
                   isRequired
                 />
+                                <Popover 
+                  showArrow
+                  backdrop="blur"
+                  placement="right"
+                  isOpen={popoverVisible}
+                  onClose={() => setPopoverVisible(false)}
+                  classNames={{
+                    base: ["before:bg-default-200"],
+                    content: [
+                      "py-3 px-4 border border-default-200",
+                      "bg-gradient-to-br from-white to-default-300",
+                      "dark:from-default-100 dark:to-default-50",
+                    ],
+                  }}
+                >
+                  <PopoverTrigger>
+                    <Button onClick={togglePopover}>{getButtonLabel()}</Button>
+                  </PopoverTrigger>
+                  <PopoverContent>
+                    {(titleProps) => (
+                      <div className="px-1 py-2">
+                        {/* <h3 className="text-small font-bold" {...titleProps}>
+                          Select a Tag
+                        </h3> */}
+                        <Autocomplete 
+                          label="Select tag..." 
+                          size="sm"
+                          variant="faded"
+                          description="Tags help organize your purchases."
+                          className="max-w-xs" 
+                          listboxProps={{
+                            // emptyContent={"ENTER to add custom tag..."}
+                          }}
+                          allowsCustomValue={false}
+                          onSelectionChange={handleTagSelect}
+                          onInputChange={handleTagInputChange}
+                          onKeyDown={handleTagInputKeyDown}
+                          defaultItems={categories}
+                        >
+                          {(item) => (
+                            <AutocompleteItem key={item.value} value={item.value}>
+                              {item.label}
+                            </AutocompleteItem>
+                          )}
+                        </Autocomplete>
+                      </div>
+                    )}
+                  </PopoverContent>
+                </Popover>
               </ModalBody>
               <ModalFooter>
                 <Button onPress={closeSub}>

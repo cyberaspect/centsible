@@ -7,6 +7,11 @@ A demo with example login credentials is at [centsible-spending-hc.web.app](http
 if you have any questions, you can always email my submission email!
 if you're a judge, login [using these credentials](https://centsible-spending-hc.web.app/dev/cyberaspect/tempcred)
 
+```
+Username: create@hackgwinnett
+Password: hc5judge
+```
+
 ## running locally
 Run `git clone https://github.com/cyberaspect/centsible`
 Run with `npm run build` in the root folder.

@@ -20,7 +20,8 @@ import { PencilIcon, Trash2Icon, RefreshCcw, PlusIcon, EllipsisVertical, SearchI
 import { auth, db } from "../../components/firebase";
 import { collection, getDocs, deleteDoc, doc } from "firebase/firestore";
 import { usePurchaseContext } from "../../components/PurchaseContext";
-import { format } from "date-fns";
+import { format, set } from "date-fns";
+import { NumericFormat } from "react-number-format";
 
 const columns = [
   { name: "NAME", uid: "name", sortable: true },
@@ -40,30 +41,43 @@ const fetchPurchases = async (uid) => {
   return purchases;
 };
 
-const deletePurchase = async (purchases, purchaseId, uid, setPurchases) => {
+const deletePurchase = async (purchases, purchaseId, uid, setPurchases, setDeleteDisabled) => {
   if (uid) {
-    await deleteDoc(doc(db, "hc5", uid, "purchases", purchaseId));
-    const updatedPurchases = purchases.filter(purchase => purchase.id !== purchaseId);
-    setPurchases(updatedPurchases);
+    setDeleteDisabled(true);
+    try {
+      await deleteDoc(doc(db, "hc5", uid, "purchases", purchaseId));
+      const updatedPurchases = purchases.filter(purchase => purchase.id !== purchaseId);
+      setPurchases(updatedPurchases);
+    } catch (error) {
+      console.error("Error deleting purchase:", error);
+    } finally {
+      setDeleteDisabled(false);
+    }
   }
 };
 
-const cellMap = (cellValue) => {
-  switch (cellValue) {
-    case "entertainment":
-      return "primary";
-    case "food":
-      return "success";
+const getChipColor = (value) => {
+  switch (value.toLowerCase()) {
+    case "medical":
+      return "red";
+    case "insurance":
+      return "blue";
+    case "education":
+      return "green";
     case "clothing":
-      return "warning";
-    case "health":
-      return "error";
+      return "white";
+    case "food":
+      return "yellow";
+    case "savings":
+      return "orange";
+    case "utilities":
+      return "gray";
     default:
-      return "default";
+      return "yellow";
   }
-}
+};
 
-const refreshPurchases = async (uid) => {
+const refreshPurchases = async (uid, setPurchases) => {
   if (uid) {
     const data = await fetchPurchases(uid);
     setPurchases(data);
@@ -77,6 +91,7 @@ export default function HistoryTable() {
   const [visibleColumns, setVisibleColumns] = useState(new Set(columns.map(col => col.uid)));
   const [rowsPerPage, setRowsPerPage] = useState(5);
   const [sortDescriptor, setSortDescriptor] = useState({ column: "date", direction: "ascending" });
+  const [deleteDisabled, setDeleteDisabled] = useState(false);
   const [page, setPage] = useState(1);
   const uid = auth.currentUser?.uid;
   const { sessionPurchaseNum } = usePurchaseContext();
@@ -134,12 +149,19 @@ export default function HistoryTable() {
     case "date":
       return <p>{cellValue ? format(new Date(cellValue), "PPpp") : "(not specified)"}</p>;
     case "price":
+      const isWithdrawal = purchase.withdrawing !== false;
       return (
-        <p>{cellValue}</p>
+        <NumericFormat
+          value={cellValue}
+          displayType={'text'}
+          thousandSeparator={true}
+          prefix={isWithdrawal ? '$' : '+$'}
+          className={isWithdrawal ? '' : 'text-green-500'}
+        />
       );
     case "tag":
       return (
-        <Chip className="capitalize" color={() => cellMap(cellValue)} size="sm" variant="flat">
+        <Chip className="capitalize" color={() => getChipColor(cellValue)} size="sm" variant="flat">
           {cellValue}
         </Chip>
       );
@@ -155,7 +177,7 @@ export default function HistoryTable() {
             <Button isIconOnly size="sm" color="ghost"><PencilIcon /></Button>
           </Tooltip> */}
           <Tooltip color="danger" content="Delete purchase">
-            <Button isIconOnly size="sm" variant="light" onPress={() => deletePurchase(purchases, purchase.id, uid, setPurchases)}>
+            <Button isIconOnly isDisabled={deleteDisabled} className={deleteDisabled ? "text-default-500" : null} size="sm" variant="light" onPress={() => deletePurchase(purchases, purchase.id, uid, setPurchases, setDeleteDisabled)}>
               <Trash2Icon />
             </Button>
           </Tooltip>
@@ -312,7 +334,7 @@ export default function HistoryTable() {
               <div className="flex flex-row items-center">
                 {column.name}
                 <Tooltip content="Refresh purchases">
-                  <Button size="sm" variant="light" isIconOnly onPress={() => refreshPurchases(uid)}>
+                  <Button size="sm" variant="light" isIconOnly onPress={() => refreshPurchases(uid, setPurchases)}>
                     <RefreshCcw size={18} />
                   </Button>
                 </Tooltip>

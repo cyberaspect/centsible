@@ -1,17 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { auth, db } from '../components/firebase';
-import { doc, getDoc, collection, getDocs } from 'firebase/firestore';
+import { doc, getDoc, collection, getDocs, onSnapshot } from 'firebase/firestore'; // Add onSnapshot
 import { signOut } from 'firebase/auth';
 import { Avatar, Button, CircularProgress, Dropdown, DropdownItem, DropdownMenu, DropdownSection, DropdownTrigger, Link, Navbar, NavbarBrand, NavbarContent, NavbarItem, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from '@nextui-org/react';
 import { Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { setTitle } from '../App';
-import { DollarSign, CoinsIcon } from 'lucide-react';
+import { DollarSign, CoinsIcon, BellIcon } from 'lucide-react';
 import TotalBalance from './dash/TotalBalance';
 import ActionButton from './dash/Action';
 import { NumericFormat } from 'react-number-format';
 import Rechart from './dash/Rechart';
+import RechartTags from './dash/RechartTags';
 import Retable from './dash/Retable';
 import HistoryTable from './dash/Table';
+import { useTheme } from 'next-themes';
 
 const randomLoadingMessages = [
   "Smarter spending coming your way.",
@@ -59,58 +61,40 @@ export default function Dash() {
   };
 
   useEffect(() => {
-    const fetchUserData = async () => {
-      try {
-        const user = auth.currentUser;
-        if (user) {
-          const userDoc = await getDoc(doc(db, 'hc5', user.uid));
-          if (userDoc.exists()) {
-            setUserData(userDoc.data());
-            // console.log(userData);
-          } else {
-            console.log('CreateUser Error: User document not found');
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching user data:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
+    const user = auth.currentUser;
+    if (!user) return;
 
-    const fetchPurchases = async () => {
-      try {
-        const user = auth.currentUser;
-        if (user) {
-          const querySnapshot = await getDocs(collection(db, "hc5", user.uid, "purchases"));
-          const purchasesData = [];
-          querySnapshot.forEach((doc) => {
-            purchasesData.push({ id: doc.id, ...doc.data() });
-          });
-          setPurchases(purchasesData);
-        }
-      } catch (error) {
-        console.error('Error fetching purchases:', error);
-      }
-    };
+    const userDocRef = doc(db, 'hc5', user.uid);
 
-    fetchUserData();
+    const unsubscribeUser = onSnapshot(userDocRef, (doc) => {
+      if (doc.exists()) {
+        setUserData(doc.data());
+      } else {
+        console.log('CreateUser Error: User document not found');
+      }
+      setLoading(false);
+    }, (error) => {
+      console.error('Error fetching user data:', error);
+      setLoading(false);
+    });
+
+    const purchasesCollectionRef = collection(db, "hc5", user.uid, "purchases");
+
+    const unsubscribePurchases = onSnapshot(purchasesCollectionRef, (snapshot) => {
+      const purchasesData = [];
+      snapshot.forEach((doc) => {
+        purchasesData.push({ id: doc.id, ...doc.data() });
+      });
+      setPurchases(purchasesData);
+    }, (error) => {
+      console.error('Error fetching purchases:', error);
+    });
+
+    return () => {
+      unsubscribeUser();
+      unsubscribePurchases();
+    };
   }, []);
-
-  // useEffect(() => {
-  //   const handleKeyPress = (event) => {
-  //     if (event.key === 'e') {
-  //       console.log(userData);
-  //       console.log(auth.currentUser);
-  //     }
-  //   };
-
-  //   window.addEventListener('keypress', handleKeyPress);
-
-  //   return () => {
-  //     window.removeEventListener('keypress', handleKeyPress);
-  //   };
-  // }, [userData]);
 
   const handleLogout = async () => {
     try {
@@ -153,7 +137,8 @@ export function Home({ userData, purchases }) {
 
   // grid md:grid-cols-12 mdb:grid-cols-2 xl:grid-cols-3 gap-4 p-6
   // className="col-span-4 row-span-10 bg-default-100 rounded-2xl p-6 flex items-center justify-center"
-  //className="col-span-1 row-span-1 bg-default-100 rounded-2xl p-6 flex items-center justify-between"
+  // className="col-span-1 row-span-1 bg-default-100 rounded-2xl p-6 flex items-center justify-between"
+
   return (
     <div className="grid grid-cols-1 sm:grid-cols-4 grid-rows-3 gap-4 p-6 grid-flow-row-dense h-full">
       <div className="col-span-1 space-y-2">
@@ -164,9 +149,7 @@ export function Home({ userData, purchases }) {
           <div>
             <p className="text-default-500">Total Balance</p>
             <h2 className="text-2xl font-semibold text-default-900">
-              {userData?.balance ? (
-                <NumericFormat value={userData?.balance} displayType={'text'} thousandSeparator={true} prefix={'$'} />
-              ) : "Loading..."}
+            <NumericFormat value={userData?.balance} displayType={'text'} thousandSeparator={true} prefix={'$'} />
             </h2>
           </div>
           <div className="flex items-center justify-center bg-default-200 rounded-full h-12 w-12">
@@ -176,15 +159,15 @@ export function Home({ userData, purchases }) {
         
         <div className="bg-default-100 rounded-2xl p-4 flex items-center justify-between">
           <div>
-            <p className="text-default-500">Total Balance</p>
+            <p className="text-default-500">Alerts</p>
             <h2 className="text-2xl font-semibold text-default-900">
-              {userData?.balance ? (
-                <NumericFormat value={userData?.balance} displayType={'text'} thousandSeparator={true} prefix={'$'} />
-              ) : "Loading..."}
+              {userData?.balance < 0 ? (
+                "You are in debt!"
+              ) : "No new alerts"}
             </h2>
           </div>
           <div className="flex items-center justify-center bg-default-200 rounded-full h-12 w-12">
-            <DollarSign />
+            <BellIcon />
           </div>
         </div>
       </div>
@@ -194,16 +177,16 @@ export function Home({ userData, purchases }) {
       </div>
       
       <div className="col-span-4 sm:col-span-2 row-span-1">
-        <Rechart userData={userData} purchases={purchases} />
+        <Rechart purchases={purchases} />
       </div>
 
       <div className="col-span-4 sm:col-span-2 row-span-1">
-        <Rechart userData={userData} purchases={purchases} />
+        <RechartTags purchases={purchases} />
       </div>
 
       <div className="col-span-4">
         <div className="bg-default-100 rounded-2xl p-3 flex items-center justify-center">
-          <p className="text-default-500">Hiya, Ethen!</p>
+          <p className="text-default-500">Let's get saving!</p>
         </div>
       </div>
     </div>
@@ -239,6 +222,7 @@ export function ReNavbar({ userData, handleHelp }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [curLoc, setCurLoc] = useState(location.pathname);
+  const {resolvedTheme, setTheme} = useTheme();
 
   useEffect(() => {
     setCurLoc(location.pathname);
@@ -271,11 +255,16 @@ export function ReNavbar({ userData, handleHelp }) {
               History
             </Link>
           </NavbarItem>
-          <NavbarItem isActive={isLoc('/settings')}>
+          <NavbarItem>
+            <Link className={resolvedTheme === "dark" ? "text-white cursor-pointer" : "text-black cursor-pointer"} onPress={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}>
+              {resolvedTheme === "dark" ? "Light Theme" : "Dark Theme"} {/* 🌞🌙 */}
+            </Link>
+          </NavbarItem>
+          {/* <NavbarItem isActive={isLoc('/settings')}>
             <Link href="/dashboard/settings" color={isLoc('/settings') ? "warning" : "foreground"} aria-current={isLoc('/settings') ? "page" : null}>
               Settings
             </Link>
-          </NavbarItem>
+          </NavbarItem> */}
         </NavbarContent>
 
         <NavbarContent as="div" justify="end">

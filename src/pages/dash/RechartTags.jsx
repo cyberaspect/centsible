@@ -1,26 +1,50 @@
 import React from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { getMonth, getYear, format } from 'date-fns';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+
+const defaultTags = [
+  { label: "Housing", value: "housing" },
+  { label: "Transportation", value: "transportation" },
+  { label: "Food", value: "food" },
+  { label: "Utilities", value: "utilities" },
+  { label: "Clothing", value: "clothing" },
+  { label: "Medical", value: "medical" },
+  { label: "Insurance", value: "insurance" },
+  { label: "Household Items", value: "household_items" },
+  { label: "Personal", value: "personal" },
+  { label: "Entertainment", value: "entertainment" },
+  { label: "Debt", value: "debt" },
+  { label: "Education", value: "education" },
+  { label: "Savings", value: "savings" },
+  { label: "Gifts", value: "gifts" },
+];
 
 const transformPurchasesToChartData = (purchases) => {
-  const tags = ['Entertainment', 'Grocery', 'Food', 'Bills', 'Rent', 'Taxes', 'Income', 'Bonus', 'Other'];
-  const chartData = tags.map(tag => {
-    const tagPurchases = purchases.filter(purchase => purchase.tag === tag);
+  const chartData = [];
+  const tagMap = {};
 
-    const expenses = tagPurchases
-      .filter(purchase => purchase.withdrawing)
-      .reduce((total, purchase) => total + purchase.price, 0);
-
-    const income = tagPurchases
-      .filter(purchase => !purchase.withdrawing)
-      .reduce((total, purchase) => total + purchase.price, 0);
-
-    return {
-      name: tag,
-      income,
-      expenses,
-    };
+  defaultTags.forEach(tag => {
+    tagMap[tag.value] = { income: 0, expenses: 0 };
   });
+
+  purchases.forEach(purchase => {
+    const tag = purchase.tag || 'Other';
+    if (!tagMap[tag]) {
+      tagMap[tag] = { income: 0, expenses: 0 };
+    }
+    if (purchase.withdrawing) {
+      tagMap[tag].expenses += purchase.price;
+    } else {
+      tagMap[tag].income += purchase.price;
+    }
+  });
+
+  for (const tag in tagMap) {
+    chartData.push({
+      name: defaultTags.find(t => t.value === tag)?.label || tag,
+      income: tagMap[tag].income,
+      expenses: tagMap[tag].expenses,
+    });
+  }
 
   return chartData;
 };
@@ -30,12 +54,15 @@ const RechartTags = ({ purchases }) => {
 
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <LineChart
+      <BarChart
         width={500}
         height={300}
         data={data}
         margin={{
-          left: -40,
+          top: 20,
+          right: 30,
+          left: 20,
+          bottom: 5,
         }}
       >
         <CartesianGrid strokeDasharray="3 3" />
@@ -43,9 +70,9 @@ const RechartTags = ({ purchases }) => {
         <YAxis />
         <Tooltip />
         <Legend />
-        <Line type="monotone" dataKey="income" stroke="#8884d8" activeDot={{ r: 8 }} />
-        <Line type="monotone" dataKey="expenses" stroke="#82ca9d" />
-      </LineChart>
+        <Bar dataKey="income" stackId="a" fill="#8884d8" />
+        <Bar dataKey="expenses" stackId="a" fill="#82ca9d" />
+      </BarChart>
     </ResponsiveContainer>
   );
 };
