@@ -1,6 +1,7 @@
 {
   "hosting": {
     "public": "dist",
+    "site": "centsible-spending-hc",
     "ignore": [
       "firebase.json",
       "**/.*",
