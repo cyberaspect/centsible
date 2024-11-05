@@ -94,7 +94,7 @@ export default function Login() {
 								errorMessage="Please enter a valid email"
 								onValueChange={setUsername}
 								endContent={
-									<Tooltip content={<div className="flex items-center justify-center"><p>For testing purposes,&nbsp;<Link className={link()} to="/dev/playintellectra/cyberaspect/tempcred.md">use these credentials</Link></p></div>} key="hclogin" size="md" closeDelay={500} showArrow>
+									<Tooltip content={<div className="flex items-center justify-center"><p>For testing purposes,&nbsp;<Link className={link()} to="/dev/cyberaspect/tempcred">use these credentials</Link></p></div>} key="hclogin" size="md" closeDelay={500} showArrow>
 										<HelpCircle color={resolvedTheme === "dark" ? "#ababab" : "#666666"} className="ml-1 cursor-pointer" />
 									</Tooltip>
 								}
@@ -134,7 +134,7 @@ export default function Login() {
 					{/* Continue With Google in CWG.html */}
 					<p className="text-center text-sm">
 						Don't have an account yet?&nbsp;
-						<Link to="/dev/playintellectra/cyberaspect/tempcred.md" className="text-primary no-underline hover:opacity-80">
+						<Link to="/dev/cyberaspect/tempcred" className="text-primary no-underline hover:opacity-80">
 							<span className="line-through">Sign Up</span>&nbsp;<span className="text-default-foreground">Click here for your temporary judge login</span>
 						</Link>
 					</p>
