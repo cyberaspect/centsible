@@ -18,10 +18,11 @@ import {
 } from "@nextui-org/react";
 import { PencilIcon, Trash2Icon, RefreshCcw, PlusIcon, EllipsisVertical, SearchIcon, ChevronDownIcon } from "lucide-react";
 import { auth, db } from "../../components/firebase";
-import { collection, getDocs, deleteDoc, doc } from "firebase/firestore";
+import { collection, getDocs, deleteDoc, doc, getDoc, updateDoc } from "firebase/firestore";
 import { usePurchaseContext } from "../../components/PurchaseContext";
 import { format, set } from "date-fns";
 import { NumericFormat } from "react-number-format";
+import { toast } from 'react-hot-toast';
 
 const columns = [
   { name: "NAME", uid: "name", sortable: true },
@@ -41,18 +42,46 @@ const fetchPurchases = async (uid) => {
   return purchases;
 };
 
+const updateBalance = async (amount, isWithdrawal) => {
+  const user = auth.currentUser;
+  const userDocRef = doc(db, 'hc5', user.uid);
+  const userDoc = await getDoc(userDocRef);
+  if (userDoc.exists()) {
+    const currentBalance = userDoc.data().balance || 0;
+    const newBalance = isWithdrawal ? currentBalance + amount : currentBalance - amount;
+    await updateDoc(userDocRef, { balance: newBalance });
+  }
+};
+
 const deletePurchase = async (purchases, purchaseId, uid, setPurchases, setDeleteDisabled) => {
   if (uid) {
     setDeleteDisabled(true);
-    try {
-      await deleteDoc(doc(db, "hc5", uid, "purchases", purchaseId));
-      const updatedPurchases = purchases.filter(purchase => purchase.id !== purchaseId);
-      setPurchases(updatedPurchases);
-    } catch (error) {
-      console.error("Error deleting purchase:", error);
-    } finally {
-      setDeleteDisabled(false);
-    }
+    const purchase = purchases.find(p => p.id === purchaseId);
+    toast.promise(
+      new Promise(async (resolve, reject) => {
+        try {
+          const purchaseDoc = await getDoc(doc(db, "hc5", uid, "purchases", purchaseId));
+          const purchaseData = purchaseDoc.data();
+
+          await updateBalance(purchaseData.price, purchaseData.withdrawing !== false);
+          await deleteDoc(doc(db, "hc5", uid, "purchases", purchaseId));
+
+          const updatedPurchases = purchases.filter(purchase => purchase.id !== purchaseId);
+          setPurchases(updatedPurchases);
+          resolve();
+        } catch (error) {
+          console.error("Error deleting purchase:", error);
+          reject();
+        } finally {
+          setDeleteDisabled(false);
+        }
+      }),
+      {
+        loading: `Deleting purchase ${purchase.name}...`,
+        success: `Purchase ${purchase.name} deleted successfully!`,
+        error: `Error deleting ${purchase.name}!`
+      }
+    );
   }
 };
 
@@ -89,7 +118,7 @@ export default function HistoryTable() {
   const [filterValue, setFilterValue] = useState("");
   const [selectedKeys, setSelectedKeys] = useState(new Set([]));
   const [visibleColumns, setVisibleColumns] = useState(new Set(columns.map(col => col.uid)));
-  const [rowsPerPage, setRowsPerPage] = useState(5);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
   const [sortDescriptor, setSortDescriptor] = useState({ column: "date", direction: "ascending" });
   const [deleteDisabled, setDeleteDisabled] = useState(false);
   const [page, setPage] = useState(1);
@@ -147,7 +176,7 @@ export default function HistoryTable() {
     case "name":
       return <p>{cellValue}</p>;
     case "date":
-      return <p>{cellValue ? format(new Date(cellValue), "PPpp") : "(not specified)"}</p>;
+      return <p>{cellValue ? format(new Date(cellValue), "Pp") : "(not specified)"}</p>; // attempt to shorten column
     case "price":
       const isWithdrawal = purchase.withdrawing !== false;
       return (
@@ -176,7 +205,7 @@ export default function HistoryTable() {
           <Tooltip content="Edit purchase">
             <Button isIconOnly size="sm" color="ghost"><PencilIcon /></Button>
           </Tooltip> */}
-          <Tooltip color="danger" content="Delete purchase">
+          <Tooltip color="danger" showArrow content="Delete purchase">
             <Button isIconOnly isDisabled={deleteDisabled} className={deleteDisabled ? "text-default-500" : null} size="sm" variant="light" onPress={() => deletePurchase(purchases, purchase.id, uid, setPurchases, setDeleteDisabled)}>
               <Trash2Icon />
             </Button>
@@ -267,9 +296,11 @@ export default function HistoryTable() {
               className="bg-transparent outline-none text-default-400 text-small"
               onChange={onRowsPerPageChange}
             >
-              <option value="5">5</option>
               <option value="10">10</option>
-              <option value="15">15</option>
+              <option value="20">20</option>
+              <option value="40">40</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
             </select>
           </label>
         </div>
@@ -283,7 +314,7 @@ export default function HistoryTable() {
         <span className="w-[30%] text-small text-default-400">
           {selectedKeys === "all"
             ? "All items selected"
-            : `${selectedKeys.size} of ${filteredItems.length} selected`}
+            : `${selectedKeys.size} of ${filteredItems.length} selected...`}
         </span>
         <Pagination
           isCompact
@@ -312,9 +343,9 @@ export default function HistoryTable() {
       isHeaderSticky
       bottomContent={bottomContent}
       bottomContentPlacement="outside"
-      classNames={{
-        wrapper: "max-h-[382px]",
-      }}
+      // classNames={{
+      //   wrapper: "max-h-[382px]",
+      // }}
       selectedKeys={selectedKeys}
       selectionMode="multiple"
       sortDescriptor={sortDescriptor}
@@ -329,6 +360,7 @@ export default function HistoryTable() {
             key={column.uid}
             align={column.uid === "actions" ? "center" : "start"}
             allowsSorting={column.sortable}
+            // className={column.uid === "date" && "min-w-[5vw]"}
           >
             {column.uid === "actions" ? (
               <div className="flex flex-row items-center">

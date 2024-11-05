@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { auth, db } from '../components/firebase';
-import { doc, getDoc, collection, getDocs, onSnapshot } from 'firebase/firestore'; // Add onSnapshot
+import { doc, getDoc, collection, getDocs, onSnapshot } from 'firebase/firestore'; // snapshots?
 import { signOut } from 'firebase/auth';
 import { Avatar, Button, CircularProgress, Dropdown, DropdownItem, DropdownMenu, DropdownSection, DropdownTrigger, Link, Navbar, NavbarBrand, NavbarContent, NavbarItem, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from '@nextui-org/react';
 import { Route, Routes, useLocation, useNavigate } from 'react-router-dom';
@@ -212,7 +212,7 @@ export function History({ userData }) {
 
   return (
     <div className="p-4">
-      <h1>Transaction History</h1>
+      <h1 className="text-2xl font-semibold mb-5">Transaction History</h1>
       <HistoryTable />
     </div>
   );

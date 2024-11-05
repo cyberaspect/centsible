@@ -23,6 +23,11 @@ export default function Account() {
     return () => unsubscribe();
   }, []);
 
+  useEffect(() => {
+    console.log("Current path:", window.location.pathname);
+    console.log("Is authenticated:", isAuthenticated);
+  }, [isAuthenticated]);
+
   return (
     <Routes>
       <Route path="/" element={<Settings />} />

@@ -16,15 +16,12 @@ const columns = [
 ];
 
 const fetchPurchases = async (uid) => {
-  setRefreshDisabled(true);
   const purchases = [];
   const querySnapshot = await getDocs(collection(db, "hc5", uid, "purchases"));
   querySnapshot.forEach((doc) => {
     purchases.push({ id: doc.id, ...doc.data() });
   });
-  // Sort by date and limit to 5 most recent purchases
   purchases.sort((a, b) => new Date(b.date) - new Date(a.date));
-  setRefreshDisabled(false);
   return purchases.slice(0, 5);
 };
 
@@ -91,16 +88,16 @@ const Retable = () => {
       <TableHeader columns={columns}>
         {(column) => (
           <TableColumn key={column.uid} align={column.uid === "actions" ? "center" : "start"}>
-                                    <div className="flex flex-row items-center">
-
-          {column.uid !== "actions" ? column.name : null}
-          {column.uid === "actions" && (
-              <Tooltip content="Refresh purchases">
-                  <Button size="sm" className="-ml-1" isDisabled={refreshDisabled} variant="light" isIconOnly onPress={() => fetchPurchases(uid, setRefreshDisabled)}><RefreshCcw size={18} /></Button>
-              </Tooltip>
-          )
-          }          
-          </div>
+            <div className="flex flex-row items-center">
+              {column.uid !== "actions" ? column.name : null}
+              {column.uid === "actions" && (
+                <Tooltip content="Refresh purchases">
+                  <Button size="sm" className="-ml-1" isDisabled={refreshDisabled} variant="light" isIconOnly onPress={() => fetchPurchases(uid).then(setPurchases)}>
+                    <RefreshCcw size={18} />
+                  </Button>
+                </Tooltip>
+              )}
+            </div>
           </TableColumn>
         )}
       </TableHeader>

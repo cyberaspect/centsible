@@ -1,6 +1,5 @@
 import { Button, Input, Tooltip, Divider } from "@nextui-org/react";
 import { useState, useEffect, useMemo } from "react";
-import { link } from "../../components/styles";
 import { HelpCircle } from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
 import { useTheme } from "next-themes";
@@ -28,15 +27,14 @@ const getErrorMessage = (errorCode) => {
 };
 
 export default function Login() {
-	useEffect(() =>
-		setTitle("Login"), []
-	);
 	const [username, setUsername] = useState("");
 	const [password, setPassword] = useState("");
 	const [visible, isVisible] = useState(false);
 	const [errorMessage, setErrorMessage] = useState(null);
 	const { theme, resolvedTheme } = useTheme();
 	const navigate = useNavigate();
+	useEffect(() => {
+		setTitle("Login")}, []); // AHHHHHHHHHH
 
 	const isInvalid = useMemo(() => {
 	  if (username === "") return false;
@@ -93,11 +91,11 @@ export default function Login() {
 								placeholder="&nbsp;"
 								errorMessage="Please enter a valid email"
 								onValueChange={setUsername}
-								endContent={
-									<Tooltip content={<div className="flex items-center justify-center"><p>For testing purposes,&nbsp;<Link className={link()} onPress={window.location.href = "/dev/cyberaspect/tempcred"}>use these credentials</Link></p></div>} key="hclogin" size="md" closeDelay={500} showArrow>
-										<HelpCircle color={resolvedTheme === "dark" ? "#ababab" : "#666666"} className="ml-1 cursor-pointer" />
-									</Tooltip>
-								}
+								// endContent={
+								// 	<Tooltip content={<div className="flex items-center justify-center"><p>For testing purposes,&nbsp;<a href="/dev/cyberaspect/tempcred">use these credentials</a></p></div>} key="hclogin" size="md" closeDelay={500} showArrow>
+								// 		<HelpCircle color={resolvedTheme === "dark" ? "#ababab" : "#666666"} className="ml-1 cursor-pointer" />
+								// 	</Tooltip>
+								// }
 							/>
 							<Input
 								type="password"
@@ -134,9 +132,9 @@ export default function Login() {
 					{/* Continue With Google in CWG.html */}
 					<p className="text-center text-sm">
 						Don't have an account yet?&nbsp;
-						<Link onPress={window.location.href = "/dev/cyberaspect/tempcred"} className="text-primary no-underline hover:opacity-80">
-							<span className="line-through">Sign Up</span>&nbsp;<span className="text-default-foreground">Click here for your temporary judge login</span>
-						</Link>
+							{/* <a className="text-primary no-underline hover:opacity-80" href="/dev/cyberaspect/tempcred">
+								<span className="line-through">Sign Up</span>&nbsp;<span className="text-default-foreground">Click here for your temporary judge login</span>
+							</a> */}
 					</p>
 				</div>
 			</div>
