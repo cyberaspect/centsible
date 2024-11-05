@@ -8,4 +8,4 @@ A demo with example login credentials is at [centsible-spending-hc.web.app](http
 ## running locally
 Run `git clone https://github.com/cyberaspect/centsible`
 Run with `npm run build` in the root folder.
-Deploy to an emulator, any hosting service, or your computer :)
+Deploy to an emulator, any hosting service, or your computer :&#41;
