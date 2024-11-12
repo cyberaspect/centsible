@@ -8,7 +8,7 @@ if you have any questions, you can always email my submission email!
 if you're a judge, login [using these credentials](https://centsible-spending-hc.web.app/dev/cyberaspect/tempcred)
 
 ```
-Username: create@hackgwinnett
+Username: create@hackgwinnett.org
 Password: hc5judge
 ```
 
